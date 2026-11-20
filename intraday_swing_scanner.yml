@@ -1,0 +1,87 @@
+name: NSE Intraday Multi-Confluence Scanner
+
+on:
+  schedule:
+    # 09:15 IST = 03:45 UTC | 10:42 IST = 05:12 UTC | 12:30 IST = 07:00 UTC | 14:30 IST = 09:00 UTC | 15:15 IST = 09:45 UTC
+    - cron: "45 3 * * 1-5"
+    - cron: "12 5 * * 1-5"
+    - cron: "0 7 * * 1-5"
+    - cron: "0 9 * * 1-5"
+    - cron: "45 9 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force_run:
+        description: "Run scan even if market appears closed or on holiday"
+        required: false
+        default: "false"
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  TZ: Asia/Kolkata
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas yfinance requests
+
+      - name: Check NSE session window & holiday guard
+        id: market_check
+        env:
+          FORCE_RUN: ${{ inputs.force_run }}
+        run: |
+          python3 - <<'EOF'
+          import datetime
+          import os
+          from zoneinfo import ZoneInfo
+
+          if os.environ.get("FORCE_RUN", "false").lower() == "true":
+              print("run=true")
+              raise SystemExit(0)
+
+          now = datetime.datetime.now(ZoneInfo("Asia/Kolkata"))
+          today_str = now.strftime("%Y-%m-%d")
+
+          # Optional: add NSE holiday dates (YYYY-MM-DD) here as needed
+          nse_holidays = {
+              "2026-01-26", "2026-03-03", "2026-03-26", "2026-03-31",
+              "2026-04-03", "2026-04-14", "2026-05-01", "2026-05-28",
+              "2026-06-26", "2026-09-14", "2026-10-20", "2026-11-24",
+              "2026-12-25",
+          }
+
+          in_window = (
+              now.weekday() < 5
+              and today_str not in nse_holidays
+              and datetime.time(9, 15) <= now.time() <= datetime.time(15, 30)
+          )
+          print(f"IST={now.isoformat()} | in_window={in_window}")
+          print(f"run={'true' if in_window else 'false'}")
+          EOF
+
+      - name: Run intraday multi-confluence scanner
+        if: steps.market_check.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SHAREKHAN_API_KEY: ${{ secrets.SHAREKHAN_API_KEY }}
+          SHAREKHAN_ACCESS_TOKEN: ${{ secrets.SHAREKHAN_ACCESS_TOKEN }}
+        run: |
+          python3 run_intraday_scan.py
