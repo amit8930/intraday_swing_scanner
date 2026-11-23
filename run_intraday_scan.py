@@ -261,6 +261,11 @@ def run_intraday_scan(sharekhan_client: Any | None = None, send_alerts: bool = T
 
     return hits
 
+python3 - <<'PY'
+from run_intraday_scan import run_intraday_scan
+print(run_intraday_scan(send_alerts=False))
+PY
+
 
 if __name__ == "__main__":
     run_intraday_scan()
