@@ -1,3 +1,4 @@
+python3 run_intraday_scan.py
 #!/usr/bin/env python3
 """
 Multi-Confluence Scanner (KAMA + CRSI + ATR + Time-Scaled Volume)
