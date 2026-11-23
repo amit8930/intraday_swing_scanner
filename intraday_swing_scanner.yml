@@ -1,4 +1,9 @@
-name: NSE Intraday Multi-Confluence Scanner
+with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+    output.write("run=true\n")  # In the FORCE_RUN branch
+
+# After calculating in_window:
+with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+    output.write(f"run={'true' if in_window else 'false'}\n")name: NSE Intraday Multi-Confluence Scanner
 
 on:
   schedule:
